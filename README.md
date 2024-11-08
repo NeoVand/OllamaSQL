@@ -130,7 +130,7 @@ streamlit run app.py
 
 ## 💡 Usage Tips
 
-1. **Model Selection**: Choose models that excel at structured reasoning (e.g., CodeLlama)
+1. **Model Selection**: Choose models that excel at structured reasoning (e.g., [qwen2.5-coder](https://ollama.com/library/qwen2.5-coder))
 2. **Temperature Setting**: Lower values (0.1-0.3) for more precise SQL queries
 3. **Query Format**: Be specific in your questions, e.g., "What is the average age grouped by department?"
 4. **Data Size**: For optimal performance, keep CSV files under 100MB
