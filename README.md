@@ -109,7 +109,7 @@ Key optimizations include:
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/yourusername/ollama-sql.git
+git clone https://github.com/NeoVand/OllamaSQL
 cd ollama-sql
 ```
 
