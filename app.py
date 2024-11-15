@@ -150,39 +150,34 @@ class OllamaService:
 
         """
 
-        # Optionally, display the prompt to the user
-        st.subheader('System Prompt Sent to the Model')
-        st.code(system_prompt)
+        # Optionally, display the prompt to the user in a collapsed expander
+        with st.expander('System Prompt Sent to the Model', expanded=False):
+            st.code(system_prompt)
 
-        # Send the prompt to the model
+        # Send the prompt to the model and stream the response
+        assistant_response_text = ""
         with st.spinner('Generating SQL query...'):
             try:
-                assistant_response = await client.generate(
+                response_placeholder = st.empty()
+                # Await the coroutine to get the async generator
+                async_gen = await client.generate(
                     model=model_name,
                     prompt=system_prompt + "\nUser Question:\n" + query,
-                    options={"temperature": temperature}
+                    options={"temperature": temperature},
+                    stream=True
                 )
+                async for part in async_gen:
+                    chunk = part.get('response', '')
+                    assistant_response_text += chunk
+                    response_placeholder.code(assistant_response_text)
             except Exception as e:
                 st.error(f"Error during assistant generation: {e}")
                 st.error(traceback.format_exc())
                 return AIResponse(sql_query=None, analysis="", sql_results=None)
         
-        # Display the assistant's raw response object
-        st.subheader('Assistant Response Object')
-        st.write(assistant_response)
-        
-        # Access the assistant's response text
-        try:
-            # The assistant's response text is under 'response'
-            assistant_response_text = assistant_response.get('response', '')
-        except Exception as e:
-            st.error(f"Error accessing assistant's response text: {e}")
-            st.error(traceback.format_exc())
-            return AIResponse(sql_query=None, analysis="", sql_results=None)
-        
-        # Display the assistant's raw response text
-        st.subheader('Assistant\'s Raw Response')
-        st.code(assistant_response_text)
+        # Display the assistant's raw response object in a collapsed expander
+        with st.expander('Assistant Response Object', expanded=False):
+            st.write(assistant_response_text)
         
         # Extract the SQL query from the assistant's response
         sql_query = OllamaService.extract_sql_query(assistant_response_text)
@@ -226,19 +221,26 @@ SQL Query:
 SQL Results:
 {json.dumps(sql_results, indent=2)}
 """
-        # Optionally, display the final prompt to the user
-        st.subheader('Final Prompt Sent to the Model')
-        st.code(final_prompt)
+        # Optionally, display the final prompt to the user in a collapsed expander
+        with st.expander('Final Prompt Sent to the Model', expanded=False):
+            st.code(final_prompt)
 
+        # Stream the final analysis response
+        assistant_final_response = ""
         with st.spinner('Generating final response...'):
             try:
-                final_response = await client.generate(
+                analysis_placeholder = st.empty()
+                # Await the coroutine to get the async generator
+                async_gen = await client.generate(
                     model=model_name,
                     prompt=final_prompt,
-                    options={"temperature": temperature}
+                    options={"temperature": temperature},
+                    stream=True
                 )
-                # Access the final response text
-                assistant_final_response = final_response.get('response', '')
+                async for part in async_gen:
+                    chunk = part.get('response', '')
+                    assistant_final_response += chunk
+                    analysis_placeholder.markdown(assistant_final_response)
             except Exception as e:
                 st.error(f"Error during final response generation: {e}")
                 st.error(traceback.format_exc())
