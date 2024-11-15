@@ -56,66 +56,101 @@ class OllamaService:
     ) -> AIResponse:
         client = ollama.AsyncClient()
         
-        columns_info = ', '.join(f"'{col}'" for col in st.session_state['selected_df'].columns)
-        system_prompt = f"""You are a data analysis assistant. You have access to a table 'selected_df' 
-        with the following columns: {columns_info}. Generate and execute SQL queries to answer user 
-        questions about this data. Always return both the SQL query and its results."""
+        df = st.session_state['selected_df']
+        num_rows = df.shape[0]
         
+        # Build detailed columns info
+        columns_info_lines = []
+        for col in df.columns:
+            dtype = str(df[col].dtype)
+            line = f"- '{col}': data type is {dtype}"
+            if pd.api.types.is_numeric_dtype(df[col]):
+                min_val = df[col].min()
+                max_val = df[col].max()
+                mean_val = df[col].mean()
+                line += f", min: {min_val}, max: {max_val}, mean: {mean_val}"
+            elif pd.api.types.is_object_dtype(df[col]) or pd.api.types.is_categorical_dtype(df[col]):
+                unique_vals = df[col].dropna().unique()[:3]
+                line += f", sample values: {list(unique_vals)}"
+            columns_info_lines.append(line)
+        
+        columns_info_str = '\n'.join(columns_info_lines)
+        
+        # Enhanced system prompt
+        system_prompt = f"""You are a data analysis assistant. You have access to a table 'selected_df' with {num_rows} rows. The table has the following columns:
+
+{columns_info_str}
+
+Your task is to generate and execute SQL queries to answer user questions about this data. Ensure that all generated SQL queries are syntactically correct and consider the SQL execution environment. If an error occurs during execution, analyze the error message and adjust the query accordingly. Always return both the final SQL query and its results in your response."""
+
         messages = [
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': query}
         ]
         
-        # Get SQL query from model
-        sql_response = await client.chat(
-            model=model_name,
-            messages=messages,
-            options={"temperature": temperature},
-            format='json',
-            tools=[{
-                'type': 'function',
-                'function': {
-                    'name': 'execute_sql_query',
-                    'description': 'Execute SQL query against the selected dataframe',
-                    'parameters': {
-                        'type': 'object',
-                        'properties': {
-                            'query': {
-                                'type': 'string',
-                                'description': 'SQL query to execute'
-                            }
-                        },
-                        'required': ['query']
-                    }
-                }
-            }]
-        )
-        
-        messages.append(sql_response['message'])
+        # Initialize conversation loop
         sql_results = None
+        extracted_query = None
+        max_retries = 3
+        for attempt in range(max_retries):
+            # Get SQL query from model
+            sql_response = await client.chat(
+                model=model_name,
+                messages=messages,
+                options={"temperature": temperature},
+                format='json',
+                tools=[{
+                    'type': 'function',
+                    'function': {
+                        'name': 'execute_sql_query',
+                        'description': 'Execute SQL query against the selected dataframe',
+                        'parameters': {
+                            'type': 'object',
+                            'properties': {
+                                'query': {
+                                    'type': 'string',
+                                    'description': 'SQL query to execute'
+                                }
+                            },
+                            'required': ['query']
+                        }
+                    }
+                }]
+            )
+            
+            messages.append(sql_response['message'])
+    
+            # Execute SQL query if tool call present
+            if tool_calls := sql_response['message'].get('tool_calls'):
+                for tool in tool_calls:
+                    if tool['function']['name'] == 'execute_sql_query':
+                        query_args = tool['function']['arguments']
+                        extracted_query = query_args['query']
+                        query_response = SQLExecutor.execute_query(extracted_query)
+                        sql_results = json.loads(query_response)
+                        messages.append({
+                            'role': 'tool',
+                            'content': query_response,
+                            'name': tool['function']['name']
+                        })
+                        # Check for errors in execution
+                        if "error" in sql_results:
+                            # Inform the AI about the error
+                            error_message = f"The SQL query returned an error: {sql_results['error']}"
+                            messages.append({'role': 'assistant', 'content': error_message})
+                            continue  # Retry with the new information
+                        else:
+                            break  # Successful execution
+            else:
+                break  # No tool calls, exit loop
 
-        # Execute SQL query if tool call present
-        if tool_calls := sql_response['message'].get('tool_calls'):
-            for tool in tool_calls:
-                if tool['function']['name'] == 'execute_sql_query':
-                    query_args = tool['function']['arguments']
-                    query_response = SQLExecutor.execute_query(query_args['query'])
-                    sql_results = json.loads(query_response)
-                    messages.append({
-                        'role': 'tool',
-                        'content': query_response,
-                        'name': tool['function']['name']
-                    })
-        
+            if sql_results and "error" not in sql_results:
+                break  # Exit if execution is successful
+
         # Get final analysis
         final_response = await client.chat(
             model=model_name,
             messages=messages,
-        )
-        
-        extracted_query = (
-            tool_calls[0]['function']['arguments'].get('query')
-            if tool_calls else None
         )
         
         return AIResponse(
