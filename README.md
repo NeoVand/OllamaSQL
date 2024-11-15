@@ -1,144 +1,348 @@
-# 🦙 OllamaSQL: AI-Powered CSV Analysis
+# 🦙 OllamaSQL: AI-Powered Tabular Data and RAG Agent
 
-A Streamlit application that demonstrates the power of Large Language Models (LLMs) for data analysis by combining Ollama's tool calling capabilities with DuckDB for SQL query execution. Users can upload CSV files and interact with an AI agent using natural language to analyze their data.
+Unlock the power of natural language to explore and analyze your CSV data! OllamaSQL combines the capabilities of Large Language Models (LLMs), SQL query generation and execution and vector similarity search to provide an intuitive and powerful data analysis tool. 🧠🔍
 
-![Screenshot of the app](screenshot.png)
+---
 
-## 🌟 Key Features
+## 🌟 Features
 
-- Upload and analyze multiple CSV files
-- Natural language to SQL query conversion using LLMs
-- Interactive data visualization
-- Support for multiple Ollama models
-- Real-time SQL query execution with DuckDB
-- Clean and intuitive user interface
+- 📂 **Upload Multiple CSV Files**: Seamlessly upload and manage your datasets.
+- 🧠 **Natural Language Queries**: Ask questions in plain English and get precise answers.
+- 🛠️ **Function Calling with LLMs**: Leverage the AI assistant to generate and execute SQL queries.
+- 🔍 **Vector Similarity Search**: Perform semantic searches using vector embeddings.
+- 🦆 **DuckDB Integration**: Efficient in-memory SQL execution with advanced vector indexing.
+- 📈 **Interactive Data Visualization**: View and interact with your data directly in the app.
+- ⚙️ **Customizable Settings**: Adjust model parameters, similarity metrics, and more.
+- 🚀 **Real-time Streaming Responses**: Get immediate feedback as the AI processes your query.
+- 🎨 **Intuitive User Interface**: Enjoy a clean and user-friendly experience.
+
+---
+
+## 📖 Table of Contents
+
+- [Introduction](#introduction)
+- [How It Works](#how-it-works)
+  - [1. Data Upload and Embedding Generation](#1-data-upload-and-embedding-generation)
+  - [2. Retrieval Augmented Generation (RAG)](#2-retrieval-augmented-generation-rag)
+  - [3. Natural Language to SQL](#3-natural-language-to-sql)
+  - [4. Vector Similarity Search](#4-vector-similarity-search)
+  - [5. Function Calling and Tool Use](#5-function-calling-and-tool-use)
+  - [6. Prompt Engineering](#6-prompt-engineering)
+  - [7. DuckDB and Vector Indexing](#7-duckdb-and-vector-indexing)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Technical Overview](#technical-overview)
+- [Contributing](#contributing)
+- [License](#license)
+- [Acknowledgments](#acknowledgments)
+
+---
+
+## 🎉 Introduction
+
+Welcome to **OllamaSQL**! This tool bridges the gap between human language and data analysis by allowing you to query your CSV datasets using natural language. Whether you're a data scientist, analyst, or just someone curious about your data, OllamaSQL makes it easy to dive deep without writing a single line of code. 🌊
+
+---
 
 ## 🧠 How It Works
 
-### Ollama Integration 🤖
+### 1. Data Upload and Embedding Generation
 
-The application uses the `ollama` Python library to interact with locally running Ollama models. Here's how it works:
+- **Data Upload**: Users start by uploading one or more CSV files through the intuitive interface.
+- **Column Selection**: Choose the text columns you want to generate embeddings for.
+- **Embedding Generation**: The app uses an embedding model to convert text data into high-dimensional vectors, capturing semantic meaning.
+- **Vector Indices Creation**: These embeddings are stored in DuckDB with vector indices for efficient retrieval.
 
-```python
-client = ollama.AsyncClient()
-response = await client.chat(
-    model=model_name,
-    messages=messages,
-    options={"temperature": temperature},
-    format='json',
-    tools=[...] # Tool definitions
-)
+### 2. Retrieval Augmented Generation (RAG)
+
+**RAG** is a technique that enhances the capabilities of language models by providing them with access to external data sources. In OllamaSQL:
+
+- **Retrieval**: The assistant retrieves relevant information from your dataset based on your query.
+- **Augmentation**: This information is used to augment the assistant's responses, ensuring accuracy and context relevance.
+- **Generation**: The assistant generates answers that are both context-aware and data-driven.
+
+This approach combines the strengths of LLMs with up-to-date and specific information from your datasets. 📚🔗
+
+### 3. Natural Language to SQL
+
+- **Query Interpretation**: The AI assistant interprets your natural language question.
+- **SQL Generation**: It generates a syntactically correct SQL query that can answer your question.
+- **Execution**: The query is executed against your dataset using DuckDB.
+- **Result Presentation**: Results are displayed in an easy-to-read format, often accompanied by the assistant's analysis.
+
+Example:
+
+*User Query*: "Show me the top 5 products with the highest sales last quarter."
+
+*Generated SQL*:
+
+```sql
+SELECT product_name, SUM(sales) as total_sales
+FROM selected_df
+WHERE quarter = 'Q4'
+GROUP BY product_name
+ORDER BY total_sales DESC
+LIMIT 5;
 ```
 
-### Function Calling with Ollama 🛠️
+### 4. Vector Similarity Search
 
-The app defines SQL execution as a tool that the LLM can use:
+- **Concept**: Transforms textual data into vectors that capture semantic relationships.
+- **Usage**: When queries require understanding the meaning behind text (e.g., "Find reviews similar to 'great battery life'"), vector similarity search is employed.
+- **Implementation**:
+  - Uses DuckDB's vector indices with similarity metrics like cosine similarity or L2 distance.
+  - Efficiently retrieves records that are semantically similar to the query.
 
-```python
-tools=[{
-    'type': 'function',
-    'function': {
-        'name': 'execute_sql_query',
-        'description': 'Execute SQL query against the selected dataframe',
-        'parameters': {
-            'type': 'object',
-            'properties': {
-                'query': {
-                    'type': 'string',
-                    'description': 'SQL query to execute'
-                }
-            },
-            'required': ['query']
-        }
-    }
-}]
-```
+### 5. Function Calling and Tool Use
 
-When the model decides to use the tool, it returns a `tool_calls` object in its response. The app detects this and executes the SQL query:
+- **Function Calling**: The AI assistant utilizes predefined functions (tools) to perform tasks beyond text generation.
+- **Tools Implemented**:
+  1. **SQL Executor**: Executes SQL queries generated by the assistant.
+  2. **Embedding Generator**: Creates embeddings for new queries when needed.
+- **Implementation Details**:
+  - The assistant is instructed to include the SQL query in a specific format.
+  - The app parses the assistant's response, extracts the SQL query, and executes it.
+  - Results are fed back to the assistant for final analysis.
 
-```python
-if tool_calls := response['message'].get('tool_calls'):
-    for tool in tool_calls:
-        if tool['function']['name'] == 'execute_sql_query':
-            query_args = tool['function']['arguments']
-            # Execute the SQL query...
-```
+### 6. Prompt Engineering
 
-### DuckDB Integration 🦆
+- **Purpose**: Crafting effective prompts is crucial to guide the AI assistant's behavior.
+- **Strategies Used**:
+  - **Clear Instructions**: The system prompt provides detailed tasks and expectations.
+  - **Examples**: Demonstrates desired outputs to the assistant.
+  - **Constraints**: Specifies formatting requirements for the SQL queries.
+- **Benefits**:
+  - Ensures consistent and accurate responses.
+  - Helps the assistant understand how to interact with the provided tools.
 
-DuckDB is used as an in-memory SQL engine to execute queries on CSV data. The app registers pandas DataFrames with DuckDB:
+### 7. DuckDB and Vector Indexing
 
-```python
-with duckdb.connect() as conn:
-    conn.register('selected_df', dataframe)
-    result = conn.execute(sql_query).df()
-```
+- **DuckDB**:
+  - An in-process SQL OLAP database management system.
+  - Allows efficient execution of complex queries without the overhead of a separate database server.
+- **Vector Indexing with DuckDB**:
+  - Utilizes the `vss` (Vector Similarity Search) extension.
+  - Supports creation of `HNSW` (Hierarchical Navigable Small World) indices.
+  - **Similarity Metrics**:
+    - **Cosine Similarity**: Measures the cosine of the angle between two vectors.
+    - **L2 Distance**: Computes the Euclidean distance between vectors.
+  - **Example**:
+    ```sql
+    SELECT * FROM selected_df
+    ORDER BY vector_distance_function(embedding, ARRAY[<query_embedding>]::FLOAT[])
+    LIMIT 5;
+    ```
+  - **Benefits**:
+    - Fast retrieval of semantically similar records.
+    - Scalable to large datasets.
 
-This allows for fast SQL queries without needing a separate database server!
-
-### Streamlit Optimization 🚀
-
-The app uses Streamlit's session state to maintain data between reruns:
-
-```python
-if 'uploaded_files' not in st.session_state:
-    st.session_state['uploaded_files'] = {}
-```
-
-Key optimizations include:
-- Caching uploaded CSV files in session state
-- Using tabs for efficient file viewing
-- Async operations for AI responses
-- Lazy loading of dataframes
-
-## 🛠️ Technologies Used
-
-- **Streamlit**: Web application framework
-- **Ollama**: Local LLM deployment and inference
-- **DuckDB**: In-memory SQL query engine
-- **Pandas**: Data manipulation and analysis
-- **Python 3.8+**: Core programming language
-
-## 📋 Prerequisites
-
-1. Python 3.8 or higher
-2. Ollama installed and running locally
-3. At least one Ollama model [supporting tool-calling](https://ollama.com/search?c=tools) downloaded.
+---
 
 ## 🚀 Installation
 
-1. Clone the repository:
-```bash
-git clone https://github.com/NeoVand/OllamaSQL.git
-cd ollama-sql
-```
+### Prerequisites
 
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+- **Python 3.7 or higher**
+- **Ollama**: Installed and running locally.
+- **Models**: At least one Ollama model supporting embeddings (e.g., `qwen2.5-coder`).
 
-3. Start Ollama server:
-```bash
-ollama serve
-```
+### Steps
 
-4. Run the application:
-```bash
-streamlit run app.py
-```
+1. **Clone the Repository**
 
-## 💡 Usage Tips
+   ```bash
+   git clone https://github.com/NeoVand/OllamaSQL.git
+   cd OllamaSQL
+   ```
 
-1. **Model Selection**: Choose models that excel at structured reasoning (e.g., [qwen2.5-coder](https://ollama.com/library/qwen2.5-coder))
-2. **Temperature Setting**: Lower values (0.1-0.3) for more precise SQL queries
-3. **Query Format**: Be specific in your questions, e.g., "What is the average age grouped by department?"
-4. **Data Size**: For optimal performance, keep CSV files under 100MB
+2. **Create a Virtual Environment**
+
+   ```bash
+   python -m venv venv
+   ```
+
+3. **Activate the Virtual Environment**
+
+   - On Windows:
+
+     ```bash
+     venv\Scripts\activate
+     ```
+
+   - On macOS/Linux:
+
+     ```bash
+     source venv/bin/activate
+     ```
+
+4. **Install Dependencies**
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+5. **Start the Ollama Server**
+
+   ```bash
+   ollama serve
+   ```
+
+6. **Run the Application**
+
+   ```bash
+   streamlit run app.py
+   ```
+
+---
+
+## 💻 Usage
+
+1. **Open the App**
+
+   After running `streamlit run app.py`, navigate to `http://localhost:8501` in your web browser.
+
+2. **Upload CSV Files**
+
+   - Use the sidebar to upload one or more CSV files.
+   - The uploaded files will appear in a list for selection.
+
+3. **Select Data and Generate Embeddings**
+
+   - Choose the file you want to analyze.
+   - Select the text columns for embedding generation.
+   - Click **Create Vector Indices** to generate embeddings and build vector indices.
+
+4. **Customize Settings (Optional)**
+
+   - **Model Selection**: Choose the LLM and embedding models.
+   - **Similarity Metric**: Select between cosine similarity or L2 distance.
+   - **Temperature**: Adjust the creativity of the AI assistant.
+
+5. **Ask Questions**
+
+   - In the **AI Agent Query** section, type your natural language question.
+   - Click **Submit Query**.
+
+6. **View Results**
+
+   - **Generated SQL Query**: Expand to view the SQL query generated by the assistant.
+   - **Query Results**: See the data retrieved by the query.
+   - **Assistant's Analysis**: Read the assistant's interpretation and answer.
+
+7. **Explore Data**
+
+   - Use the **Data Viewer** to inspect your datasets.
+   - Switch between different uploaded files using tabs.
+
+---
+
+## 🛠️ Technical Overview
+
+### Architecture Components
+
+1. **Streamlit UI**
+
+   - Manages user interactions and displays results.
+   - Uses session state to maintain data across interactions.
+
+2. **OllamaService**
+
+   - Interacts with the Ollama API for LLM responses and embeddings.
+   - Handles asynchronous streaming to provide real-time feedback.
+
+3. **SQLExecutor**
+
+   - Executes SQL queries using DuckDB.
+   - Manages error handling and data conversion.
+
+4. **DataFrameManager**
+
+   - Handles data upload, storage, and preparation.
+   - Manages embedding generation and vector index creation.
+
+### Asynchronous Streaming
+
+- **Real-time Responses**: The app streams the assistant's replies as they are generated.
+- **User Experience**: Provides immediate feedback, enhancing interactivity.
+
+### Function Calling Implementation
+
+- **Assistant's Role**: Generates SQL queries and decides when to use embeddings.
+- **Tool Definitions**: Predefined functions that the assistant can invoke.
+- **Execution Flow**:
+  1. Assistant generates a response containing a SQL query.
+  2. The app extracts and executes the SQL query.
+  3. Results are fed back to the assistant for final analysis.
+
+### Prompt Engineering Details
+
+- **System Prompt**: Provides the assistant with context, tasks, and examples.
+- **Formatting Instructions**: Ensures the assistant includes SQL queries in a specific format for easy extraction.
+- **Emphasis on Compliance**: The prompt stresses the importance of following instructions to prevent errors.
+
+### Error Handling
+
+- **Robustness**: Extensive use of try-except blocks to catch exceptions.
+- **User Feedback**: Errors are displayed to the user with detailed traceback for debugging.
+- **Resilience**: The app continues to function smoothly even when errors occur.
+
+---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! To get started:
+
+1. **Fork the Repository**
+
+   ```bash
+   git clone https://github.com/yourusername/OllamaSQL.git
+   ```
+
+2. **Create a Feature Branch**
+
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+3. **Commit Your Changes**
+
+   ```bash
+   git commit -m "Add your feature"
+   ```
+
+4. **Push to Your Fork**
+
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+5. **Submit a Pull Request**
+
+---
 
 ## 📝 License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- **Ollama**: For providing powerful LLMs and embedding models.
+- **Streamlit**: For the interactive web application framework.
+- **DuckDB**: For the efficient in-process SQL database with advanced vector indexing.
+- **Community**: Thanks to all contributors and users who make this project better.
+
+---
+
+**Happy Exploring!** 🌟
+
+---
+
+## 📚 Additional Resources
+
+- **Understanding Vector Similarity Search**: A nice article on vector similarity search: [Link](https://medium.com/@serkan_ozal/vector-similarity-search-53ed42b951d9)
+- **Prompt Engineering Techniques**: A great resource: [Link](https://www.promptingguide.ai/)
+---
+
+Feel free to explore the code, experiment with your data, and contribute to the project. OllamaSQL aims to make data analysis accessible and intuitive by harnessing the latest advancements in AI and database technologies. 🌐🤖
