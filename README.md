@@ -2,7 +2,7 @@
 
 Unlock the power of natural language to explore and analyze your CSV data! OllamaSQL combines the capabilities of Large Language Models (LLMs), SQL query generation and execution and vector similarity search to provide an intuitive and powerful data analysis tool. 🧠🔍
 
----
+![Screenshot](screenshot.png)
 
 ## 🌟 Features
 
